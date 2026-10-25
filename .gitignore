@@ -1,0 +1,35 @@
+# Python caches and tooling
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# Local environments
+.venv/
+venv/
+env/
+
+# Generated Anki artifacts
+*.apkg
+*.anki2
+*.anki2-journal
+
+# Local course material and sync state
+.ilias-sync-state.json
+.ilias-anktor-state.json
+.ilias-anktor-summaries/
+.ilias-anktor-text/
+ILIAS/
+course/
+
+# Editor and OS files
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Desktop app dependencies and builds
+desktop/node_modules/
+desktop/release-build/
+desktop/backend/*.exe

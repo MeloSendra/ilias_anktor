@@ -1,0 +1,37 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline';">
+  <title>ILIAS Anktor</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main>
+    <h1>ILIAS Anktor</h1>
+    <p class="subtle">Choose courses and generate focused Gemini study cards.</p>
+    <nav><button id="show-generator" class="selected">Generator</button><button id="show-settings">Settings</button></nav>
+    <section id="generator-view">
+      <label>ILIAS folder <input id="root" type="text"><button id="choose-root" type="button">Browse…</button></label>
+      <button id="reload">Reload courses</button>
+      <section id="courses"></section>
+      <label>Generation mode
+        <select id="mode">
+          <option value="efficient">Efficient — direct cards, fewer API requests</option>
+          <option value="deep">Deep — summarize compact batches first</option>
+        </select>
+      </label>
+      <p id="estimate" class="subtle"></p>
+      <label>Output package <input id="output" type="text"><button id="choose-output" type="button">Browse…</button></label>
+      <button id="generate" class="accent">Generate Anki package</button>
+    </section>
+    <section id="settings-view" hidden>
+      <label>Gemini API key <input id="api-key" type="password" autocomplete="off"></label>
+      <p class="subtle">The key is stored in Windows Credential Manager and is only passed to the local generator.</p>
+      <button id="save-settings" class="accent">Save settings</button>
+    </section>
+    <p id="status" role="status"></p>
+  </main>
+  <script type="module" src="renderer.js"></script>
+</body>
+</html>

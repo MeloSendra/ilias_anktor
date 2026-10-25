@@ -1,0 +1,42 @@
+{
+  "name": "ilias-anktor-desktop",
+  "private": true,
+  "version": "0.1.1",
+  "type": "module",
+  "main": "src/main.js",
+  "dependencies": {
+    "keytar": "^7.9.0"
+  },
+  "scripts": {
+    "start": "electron .",
+    "package": "electron-builder --win portable -p never"
+  },
+  "devDependencies": {
+    "electron": "^44.9.3",
+    "electron-builder": "^26.0.19"
+  },
+  "build": {
+    "appId": "de.ilias-anktor.desktop",
+    "productName": "ILIAS Anktor",
+    "directories": {
+      "output": "release-build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend/anki_companion.exe",
+        "to": "backend/anki_companion.exe"
+      }
+    ],
+    "win": {
+      "target": "portable"
+    },
+    "electronLanguages": ["en-US"]
+  },
+  "allowScripts": {
+    "keytar@7.9.0": true
+  }
+}

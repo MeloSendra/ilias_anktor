@@ -1,132 +1,51 @@
 from __future__ import annotations
 
-import json
-import sqlite3
-import time
-import zipfile
 from pathlib import Path
+from collections.abc import Mapping, Sequence
+from tempfile import NamedTemporaryFile
+
+import genanki
 
 from .core import Card
 
 
-def write_apkg(cards: list[Card], output: Path, deck_name: str) -> None:
-    if not cards:
+def write_apkg(
+    cards: Sequence[Card] | Mapping[str, Sequence[Card]],
+    output: Path,
+    deck_name: str = "Ilias Companion",
+) -> None:
+    decks = (
+        {deck_name: cards}
+        if not isinstance(cards, Mapping)
+        else cards
+    )
+    if not any(decks.values()):
         raise ValueError("no cards could be generated from the input")
 
-    now = int(time.time())
-    deck_id = 1_700_000_000_000
-    model_id = 1_700_000_001_000
-    collection = output.with_suffix(".anki2")
-    connection: sqlite3.Connection | None = None
+    model = genanki.Model(
+        1_700_000_001_000,
+        "Ilias Companion Basic",
+        fields=[{"name": "Front"}, {"name": "Back"}],
+        templates=[{
+            "name": "Card 1",
+            "qfmt": "{{Front}}",
+            "afmt": "{{FrontSide}}<hr id=answer>{{Back}}",
+        }],
+    )
+    anki_decks = []
+    for index, (name, deck_cards) in enumerate(sorted(decks.items())):
+        deck = genanki.Deck(1_700_000_000_000 + index, name)
+        for card in deck_cards:
+            note = genanki.Note(model=model, fields=[card.front, card.back])
+            note.guid = card.identifier[:10]
+            deck.add_note(note)
+        if deck.notes:
+            anki_decks.append(deck)
+    output.parent.mkdir(parents=True, exist_ok=True)
+    with NamedTemporaryFile(dir=output.parent, prefix=f".{output.name}.", suffix=".tmp", delete=False) as temporary:
+        temporary_path = Path(temporary.name)
     try:
-        connection = sqlite3.connect(collection)
-        _create_collection(connection, now, deck_id, model_id, deck_name)
-        for index, card in enumerate(cards):
-            _insert_card(connection, card, now, deck_id, model_id, index)
-        connection.commit()
-
-        with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as package:
-            package.write(collection, "collection.anki2")
-            package.writestr("media", "{}")
+        genanki.Package(anki_decks).write_to_file(str(temporary_path))
+        temporary_path.replace(output)
     finally:
-        if connection is not None:
-            connection.close()
-        collection.unlink(missing_ok=True)
-
-
-def _create_collection(
-    connection: sqlite3.Connection,
-    now: int,
-    deck_id: int,
-    model_id: int,
-    deck_name: str,
-) -> None:
-    connection.executescript(
-        """
-        CREATE TABLE col (
-          id integer primary key, crt integer not null, mod integer not null,
-          scm integer not null, ver integer not null, dty integer not null,
-          usn integer not null, ls integer not null, conf text not null,
-          models text not null, decks text not null, dconf text not null,
-          tags text not null
-        );
-        CREATE TABLE notes (
-          id integer primary key, guid text not null, mid integer not null,
-          mod integer not null, usn integer not null, tags text not null,
-          flds text not null, sfld integer not null, csum integer not null,
-          flags integer not null, data text not null
-        );
-        CREATE TABLE cards (
-          id integer primary key, nid integer not null, did integer not null,
-          ord integer not null, mod integer not null, usn integer not null,
-          type integer not null, queue integer not null, due integer not null,
-          ivl integer not null, factor integer not null, reps integer not null,
-          lapses integer not null, left integer not null, odue integer not null,
-          odid integer not null, flags integer not null, data text not null
-        );
-        """
-    )
-    model = {
-        str(model_id): {
-            "id": model_id,
-            "name": "Ilias Companion Basic",
-            "type": 0,
-            "mod": now,
-            "usn": -1,
-            "sortf": 0,
-            "did": deck_id,
-            "tags": [],
-            "flds": [
-                {"name": "Front", "ord": 0, "sticky": False, "rtl": False, "font": "Arial", "size": 20},
-                {"name": "Back", "ord": 1, "sticky": False, "rtl": False, "font": "Arial", "size": 20},
-            ],
-            "tmpls": [
-                {
-                    "name": "Card 1",
-                    "ord": 0,
-                    "qfmt": "{{Front}}",
-                    "afmt": "{{FrontSide}}<hr id=answer>{{Back}}",
-                    "bqfmt": "",
-                    "bafmt": "",
-                    "did": None,
-                }
-            ],
-            "css": ".card { font-family: arial; font-size: 20px; text-align: left; }",
-            "latexPre": "",
-            "latexPost": "",
-            "req": [[0, "all", [0, 1]]],
-        }
-    }
-    deck = {
-        str(deck_id): {
-            "id": deck_id,
-            "name": deck_name,
-            "desc": "Generated by ilias_anktor",
-            "dyn": 0,
-            "extendNew": 0,
-            "extendRev": 0,
-            "conf": 1,
-            "newToday": [0, 0],
-            "revToday": [0, 0],
-            "lrnToday": [0, 0],
-            "timeToday": 0,
-        }
-    }
-    connection.execute(
-        "INSERT INTO col VALUES (?, ?, ?, ?, 11, 0, -1, 0, ?, ?, ?, ?, ?)",
-        (now, now, now, now, json.dumps({"nextPos": 1}), json.dumps(model), json.dumps(deck), json.dumps({"1": {"id": 1}}), "[]"),
-    )
-
-
-def _insert_card(connection: sqlite3.Connection, card: Card, now: int, deck_id: int, model_id: int, index: int) -> None:
-    note_id = 1_800_000_000_000 + index
-    card_id = note_id + 1
-    checksum = int(card.identifier[:8], 16)
-    connection.execute(
-        "INSERT INTO notes VALUES (?, ?, ?, ?, -1, '', ?, ?, ?, 0, '')",
-        (note_id, card.identifier[:10], model_id, now, f"{card.front}\x1f{card.back}", card.front, checksum),
-    )
-    connection.execute(
-        "INSERT INTO cards VALUES (?, ?, ?, 0, ?, -1, 0, 0, ?, 0, 0, 0, 0, 0, 0, 0, 0, '')",
-        (card_id, note_id, deck_id, now, index),
-    )
+        temporary_path.unlink(missing_ok=True)
